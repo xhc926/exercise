@@ -18,24 +18,19 @@ def weights_init(m):
 
 
 class word_embedding(nn.Module):
-    def __init__(self,vocab_length , embedding_dim):
+    def __init__(self, vocab_length, embedding_dim):
         super(word_embedding, self).__init__()
-        w_embeding_random_intial = np.random.uniform(-1,1,size=(vocab_length ,embedding_dim))
-        self.word_embedding = nn.Embedding(vocab_length,embedding_dim)
+        w_embeding_random_intial = np.random.uniform(-1, 1, size=(vocab_length, embedding_dim))
+        self.word_embedding = nn.Embedding(vocab_length, embedding_dim)
         self.word_embedding.weight.data.copy_(torch.from_numpy(w_embeding_random_intial))
-    def forward(self,input_sentence):
-        """
-        :param input_sentence:  a tensor ,contain several word index.
-        :return: a tensor ,contain word embedding tensor
-        """
+
+    def forward(self, input_sentence):
         sen_embed = self.word_embedding(input_sentence)
         return sen_embed
 
-
 class RNN_model(nn.Module):
-    def __init__(self, batch_sz ,vocab_len ,word_embedding,embedding_dim, lstm_hidden_dim):
-        super(RNN_model,self).__init__()
-
+    def __init__(self, batch_sz, vocab_len, word_embedding, embedding_dim, lstm_hidden_dim):
+        super(RNN_model, self).__init__()
         self.word_embedding_lookup = word_embedding
         self.batch_size = batch_sz
         self.vocab_length = vocab_len
@@ -44,39 +39,33 @@ class RNN_model(nn.Module):
         #########################################
         # here you need to define the "self.rnn_lstm"  the input size is "embedding_dim" and the output size is "lstm_hidden_dim"
         # the lstm should have two layers, and the  input and output tensors are provided as (batch, seq, feature)
-        # ???
-
-
-
+        # 定义LSTM层
+        self.rnn_lstm = nn.LSTM(
+            input_size=embedding_dim,
+            hidden_size=lstm_hidden_dim,
+            num_layers=2,
+            batch_first=True
+        )
         ##########################################
-        self.fc = nn.Linear(lstm_hidden_dim, vocab_len )
-        self.apply(weights_init) # call the weights initial function.
+        self.fc = nn.Linear(lstm_hidden_dim, vocab_len)
+        self.apply(weights_init)
+        self.softmax = nn.LogSoftmax(dim=1)
 
-        self.softmax = nn.LogSoftmax() # the activation function.
-        # self.tanh = nn.Tanh()
-    def forward(self,sentence,is_test = False):
-        batch_input = self.word_embedding_lookup(sentence).view(1,-1,self.word_embedding_dim)
+    def forward(self, sentence, is_test=False):
+        batch_input = self.word_embedding_lookup(sentence).view(1, -1, self.word_embedding_dim)
         # print(batch_input.size()) # print the size of the input
         ################################################
         # here you need to put the "batch_input"  input the self.lstm which is defined before.
         # the hidden output should be named as output, the initial hidden state and cell state set to zero.
-        # ???
-
-
-
-
+        # LSTM前向传播
+        output, (h_n, c_n) = self.rnn_lstm(batch_input)  # 自动在GPU上运行（如果模型已迁移）
         ################################################
-        out = output.contiguous().view(-1,self.lstm_dim)
-
-        out =  F.relu(self.fc(out))
-
+        out = output.contiguous().view(-1, self.lstm_dim)
+        out = F.relu(self.fc(out))
         out = self.softmax(out)
-
         if is_test:
-            prediction = out[ -1, : ].view(1,-1)
+            prediction = out[-1, :].view(1, -1)
             output = prediction
         else:
-           output = out
-        # print(out)
+            output = out
         return output
-
